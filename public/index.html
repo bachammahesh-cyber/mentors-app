@@ -406,12 +406,42 @@ Rules: Never break character. Speak from the body and heart. Use stories and met
   }
 };
 
-let histories = { steve:[], elon:[], naval:[], charlie:[], maya:[] };
+let histories = { steve:null, elon:null, naval:null, charlie:null, maya:null };
 
-document.getElementById('apiKeyInput') && document.getElementById('apiKeyInput').addEventListener('keydown', e => { if (e.key === 'Enter') saveApiKey(); });
+async function loadHistory(mentor) {
+  if (histories[mentor] !== null) return;
+  try {
+    const res = await fetch(`/api/history/${mentor}`);
+    const data = await res.json();
+    histories[mentor] = data.messages || [];
+  } catch (e) {
+    histories[mentor] = [];
+  }
+}
+
+async function saveMessage(mentor, role, content) {
+  try {
+    await fetch(`/api/history/${mentor}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role, content })
+    });
+  } catch (e) {
+    console.error('Failed to save message:', e);
+  }
+}
+
+async function clearHistory(mentor) {
+  try {
+    await fetch(`/api/history/${mentor}`, { method: 'DELETE' });
+    histories[mentor] = [];
+  } catch (e) {
+    console.error('Failed to clear history:', e);
+  }
+}
 
 // ── SELECT ──
-function selectMentor(id) {
+async function selectMentor(id) {
   currentMentor = id;
   const m = MENTORS[id];
   document.getElementById('app').className = `app ${m.theme}`;
@@ -423,7 +453,11 @@ function selectMentor(id) {
   document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
   const sb = document.getElementById(`sb-${id}`); if (sb) sb.classList.add('active');
   const tb = document.getElementById(`tab-${id}`); if (tb) tb.classList.add('active');
-  renderMessages(); renderPrompts();
+  const c = document.getElementById('messages');
+  c.innerHTML = `<div class="empty-state"><div class="empty-initial">${m.initial}</div><div class="empty-text" id="loadingText">Loading…</div></div>`;
+  await loadHistory(id);
+  renderMessages();
+  renderPrompts();
 }
 
 // ── RENDER ──
@@ -431,7 +465,7 @@ function renderMessages() {
   const c = document.getElementById('messages');
   c.innerHTML = '';
   const h = histories[currentMentor];
-  if (!h.length) {
+  if (!h || !h.length) {
     c.innerHTML = `<div class="empty-state"><div class="empty-initial">${MENTORS[currentMentor].initial}</div><div class="empty-text">Begin your conversation</div></div>`;
     return;
   }
@@ -441,12 +475,13 @@ function renderMessages() {
 
 function renderPrompts() {
   const p = document.getElementById('prompts');
-  if (histories[currentMentor].length) { p.innerHTML = ''; return; }
+  const h = histories[currentMentor];
+  if (h && h.length) { p.innerHTML = ''; return; }
   p.innerHTML = MENTORS[currentMentor].prompts.map(q => `<button class="chip" onclick="usePrompt(this)">${q}</button>`).join('');
 }
 
 function usePrompt(btn) { document.getElementById('input').value = btn.textContent; document.getElementById('prompts').innerHTML = ''; sendMessage(); }
-function newChat() { histories[currentMentor] = []; renderMessages(); renderPrompts(); }
+async function newChat() { await clearHistory(currentMentor); renderMessages(); renderPrompts(); }
 
 function addMsgEl(role, text, label, animate = true) {
   const c = document.getElementById('messages');
@@ -478,10 +513,16 @@ async function sendMessage() {
   input.value = ''; autoResize(input);
   document.getElementById('prompts').innerHTML = '';
   const mentor = MENTORS[currentMentor];
-  const history = histories[currentMentor];
-  if (!history.length) { addMsgEl('mentor', mentor.greeting, mentor.name.split(' ')[0]); history.push({ role:'assistant', content:mentor.greeting }); }
+  const history = histories[currentMentor] || [];
+  if (!history.length) {
+    addMsgEl('mentor', mentor.greeting, mentor.name.split(' ')[0]);
+    history.push({ role:'assistant', content:mentor.greeting });
+    histories[currentMentor] = history;
+    await saveMessage(currentMentor, 'assistant', mentor.greeting);
+  }
   addMsgEl('user', text, 'You');
   history.push({ role:'user', content:text });
+  await saveMessage(currentMentor, 'user', text);
   isLoading = true; document.getElementById('send-btn').disabled = true; showThinking();
   try {
     const res = await fetch('/api/chat', {
@@ -493,7 +534,10 @@ async function sendMessage() {
     if (data.error) {
       addMsgEl('mentor', 'Something went wrong. Check server configuration.', mentor.name.split(' ')[0]);
     } else {
-      const reply = data.content[0].text; history.push({ role:'assistant', content:reply }); addMsgEl('mentor', reply, mentor.name.split(' ')[0]);
+      const reply = data.content[0].text;
+      history.push({ role:'assistant', content:reply });
+      await saveMessage(currentMentor, 'assistant', reply);
+      addMsgEl('mentor', reply, mentor.name.split(' ')[0]);
     }
   } catch(e) { removeThinking(); addMsgEl('mentor', 'Connection failed. Check your internet.', mentor.name.split(' ')[0]); }
   isLoading = false; document.getElementById('send-btn').disabled = false;
@@ -503,11 +547,12 @@ function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey && window.innerWidt
 function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 100) + 'px'; }
 
 const urlMentor = new URLSearchParams(window.location.search).get('mentor');
-selectMentor(MENTORS[urlMentor] ? urlMentor : currentMentor);
+const startMentor = (urlMentor && MENTORS[urlMentor]) ? urlMentor : 'steve';
+selectMentor(startMentor);
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW failed:', err));
   });
 }
 </script>
