@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mentors">
+<meta name="theme-color" content="#080808">
+<title>Mentors</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --black: #080808;
+    --off-white: #f2f0eb;
+    --gray: #777;
+    --border: rgba(255,255,255,0.07);
+    --accent: #c8a96e;
+    --accent-dim: #7a5f30;
+    --glow: rgba(200,169,110,0.07);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-t: env(safe-area-inset-top, 0px);
+  }
+
+  .theme-steve  { --accent:#c8a96e; --accent-dim:#7a5f30; --glow:rgba(200,169,110,0.08); }
+  .theme-elon   { --accent:#4fc3f7; --accent-dim:#1a6a8a; --glow:rgba(79,195,247,0.08); }
+  .theme-naval  { --accent:#a78bfa; --accent-dim:#5b3fa8; --glow:rgba(167,139,250,0.08); }
+  .theme-charlie{ --accent:#6ee7b7; --accent-dim:#2a7a5a; --glow:rgba(110,231,183,0.08); }
+  .theme-maya   { --accent:#f9a8d4; --accent-dim:#9a3060; --glow:rgba(249,168,212,0.08); }
+
+  html { height: 100%; height: -webkit-fill-available; }
+
+  body {
+    height: 100vh; height: -webkit-fill-available;
+    background: var(--black);
+    color: var(--off-white);
+    font-family: 'DM Mono', monospace;
+    font-weight: 300;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 999;
+  }
+
+  .app {
+    display: flex; flex-direction: column;
+    height: 100vh; height: -webkit-fill-available;
+    overflow: hidden; position: relative;
+  }
+
+  @media (min-width: 640px) { .app { flex-direction: row; } }
+
+  /* Glow */
+  .glow-bg {
+    position: fixed; top: -80px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 350px;
+    background: radial-gradient(ellipse, var(--glow) 0%, transparent 70%);
+    pointer-events: none; z-index: 0; transition: background 0.5s;
+  }
+
+  /* ── SIDEBAR (desktop) ── */
+  .sidebar { display: none; }
+
+  @media (min-width: 640px) {
+    .sidebar {
+      display: flex; flex-direction: column; align-items: center;
+      width: 72px; flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      padding: calc(24px + var(--safe-t)) 0 16px;
+      gap: 8px;
+      background: rgba(255,255,255,0.01); z-index: 10;
+    }
+  }
+
+  .sidebar-label {
+    font-size: 8px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: rgba(255,255,255,0.15); writing-mode: vertical-rl;
+    transform: rotate(180deg); margin-bottom: 10px;
+  }
+
+  .s-btn {
+    width: 44px; height: 44px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Serif Display', serif; font-size: 15px;
+    color: rgba(255,255,255,0.35); transition: all 0.2s;
+    position: relative; flex-shrink: 0;
+  }
+  .s-btn:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.6); }
+  .s-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(255,255,255,0.04); box-shadow: 0 0 16px var(--glow); }
+
+  .s-btn .tip {
+    position: absolute; left: 54px; background: #1c1c1c;
+    border: 1px solid rgba(255,255,255,0.1); padding: 5px 10px;
+    font-family: 'DM Mono', monospace; font-size: 10px; white-space: nowrap;
+    pointer-events: none; opacity: 0; border-radius: 6px; z-index: 200;
+    color: var(--off-white); transform: translateX(-4px); transition: all 0.15s;
+  }
+  .s-btn:hover .tip { opacity: 1; transform: translateX(0); }
+
+  /* ── MAIN ── */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; z-index: 1; }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex; align-items: center; gap: 12px;
+    padding: calc(14px + var(--safe-t)) 16px 12px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  @media (min-width: 640px) { .header { padding: 20px 28px 16px; } }
+
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #181818, #242424);
+    border: 1px solid var(--accent-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Serif Display', serif; font-size: 14px; color: var(--accent);
+    flex-shrink: 0; position: relative; transition: border-color 0.4s, color 0.4s;
+  }
+  @media (min-width: 640px) { .avatar { width: 40px; height: 40px; font-size: 16px; } }
+  .avatar::after {
+    content: ''; position: absolute; inset: -3px; border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 65%, var(--accent) 100%);
+    opacity: 0.3; animation: spin 5s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .header-info { flex: 1; min-width: 0; }
+  .header-info h1 { font-family: 'DM Serif Display', serif; font-size: 15px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @media (min-width: 640px) { .header-info h1 { font-size: 16px; } }
+  .header-info p { font-size: 8px; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 2px; transition: color 0.3s; }
+
+  .header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+  .new-btn {
+    background: none; border: 1px solid var(--border); color: rgba(255,255,255,0.28);
+    font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 5px 10px; border-radius: 6px; cursor: pointer;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .new-btn:hover, .new-btn:active { border-color: var(--accent-dim); color: var(--accent); }
+
+  .live { display: flex; align-items: center; gap: 5px; font-size: 9px; color: var(--gray); letter-spacing: 0.08em; }
+  .live::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 6px #4ade80; animation: pulse 2s ease-in-out infinite; flex-shrink: 0; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── MESSAGES ── */
+  .messages {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 20px 16px 8px;
+    display: flex; flex-direction: column; gap: 20px;
+    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  @media (min-width: 640px) { .messages { padding: 28px 28px 12px; gap: 24px; } }
+  .messages::-webkit-scrollbar { width: 2px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .message { display: flex; flex-direction: column; gap: 4px; animation: fadeUp 0.3s ease forwards; opacity: 0; transform: translateY(6px); }
+  @keyframes fadeUp { to { opacity:1; transform:translateY(0); } }
+  .message.user  { align-items: flex-end; }
+  .message.mentor{ align-items: flex-start; }
+
+  .msg-label { font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.18); }
+  .message.mentor .msg-label { color: var(--accent-dim); }
+
+  .bubble { max-width: 88%; padding: 11px 14px; line-height: 1.75; font-size: 13px; }
+  @media (min-width: 640px) { .bubble { max-width: 82%; padding: 13px 17px; } }
+
+  .message.user .bubble {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px 14px 3px 14px; color: rgba(242,240,235,0.8);
+  }
+  .message.mentor .bubble {
+    border-left: 1px solid var(--accent-dim); padding-left: 16px;
+    font-size: 13.5px; line-height: 1.85; transition: border-color 0.4s;
+  }
+
+  .thinking-wrap { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+  .thinking-dots { display: flex; gap: 4px; padding: 12px 16px; border-left: 1px solid var(--accent-dim); }
+  .thinking-dots span { width: 3px; height: 3px; border-radius: 50%; background: var(--accent); animation: blink 1.1s ease-in-out infinite; }
+  .thinking-dots span:nth-child(2) { animation-delay: 0.18s; }
+  .thinking-dots span:nth-child(3) { animation-delay: 0.36s; }
+  @keyframes blink { 0%,100%{opacity:0.15;transform:scale(0.7)} 50%{opacity:1;transform:scale(1)} }
+
+  .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; pointer-events: none; padding-bottom: 40px; }
+  .empty-initial { font-family: 'DM Serif Display', serif; font-size: 56px; color: var(--accent); opacity: 0.15; line-height: 1; transition: color 0.4s; }
+  .empty-text { font-size: 10px; letter-spacing: 0.12em; color: rgba(255,255,255,0.15); text-transform: uppercase; }
+
+  /* ── PROMPTS ── */
+  .prompts { padding: 0 16px 8px; display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+  @media (min-width: 640px) { .prompts { padding: 0 28px 10px; gap: 8px; } }
+
+  .chip {
+    font-family: 'DM Mono', monospace; font-size: 10px; padding: 6px 12px;
+    border: 1px solid var(--border); border-radius: 20px; color: rgba(255,255,255,0.28);
+    background: none; cursor: pointer; transition: all 0.2s; letter-spacing: 0.02em;
+  }
+  .chip:hover, .chip:active { border-color: var(--accent-dim); color: var(--accent); background: rgba(255,255,255,0.02); }
+
+  /* ── INPUT ── */
+  .input-area {
+    padding: 10px 16px;
+    padding-bottom: calc(10px + var(--safe-b));
+    border-top: 1px solid var(--border); flex-shrink: 0;
+  }
+  @media (min-width: 640px) { .input-area { padding: 14px 28px 20px; } }
+
+  .input-row {
+    display: flex; align-items: flex-end; gap: 8px;
+    background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px; padding: 10px 12px; transition: border-color 0.2s;
+  }
+  .input-row:focus-within { border-color: var(--accent-dim); }
+
+  textarea {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--off-white); font-family: 'DM Mono', monospace; font-weight: 300;
+    font-size: 16px; line-height: 1.55; resize: none; max-height: 100px;
+    -webkit-appearance: none;
+  }
+  @media (min-width: 640px) { textarea { font-size: 13px; } }
+  textarea::placeholder { color: rgba(120,120,120,0.45); font-style: italic; }
+
+  #send-btn {
+    background: none; border: 1px solid var(--accent-dim); color: var(--accent);
+    width: 38px; height: 38px; border-radius: 8px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; flex-shrink: 0;
+  }
+  #send-btn:active { background: rgba(255,255,255,0.05); transform: scale(0.94); }
+  #send-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+
+  .input-hint { font-size: 9px; color: rgba(100,100,100,0.3); text-align: center; margin-top: 6px; letter-spacing: 0.07em; display: none; }
+  @media (min-width: 640px) { .input-hint { display: block; } }
+
+  /* ── TAB BAR (mobile) ── */
+  .tab-bar {
+    display: flex; border-top: 1px solid var(--border);
+    background: rgba(8,8,8,0.96); flex-shrink: 0;
+    padding-bottom: var(--safe-b);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  }
+  @media (min-width: 640px) { .tab-bar { display: none; } }
+
+  .tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 10px 4px 8px; cursor: pointer; gap: 3px;
+    border: none; background: none; transition: all 0.15s;
+  }
+  .tab-initial { font-family: 'DM Serif Display', serif; font-size: 16px; color: rgba(255,255,255,0.22); transition: color 0.2s; line-height: 1; }
+  .tab-name { font-family: 'DM Mono', monospace; font-size: 8px; letter-spacing: 0.06em; color: rgba(255,255,255,0.18); text-transform: uppercase; transition: color 0.2s; }
+  .tab-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--accent); opacity: 0; transition: opacity 0.2s; }
+  .tab.active .tab-initial { color: var(--accent); }
+  .tab.active .tab-name    { color: var(--accent); }
+  .tab.active .tab-dot     { opacity: 1; }
+
+  /* ── QUOTE BAR ── */
+  .quote-bar { text-align: center; padding: 0 28px 4px; font-family: 'DM Serif Display', serif; font-style: italic; font-size: 10px; color: rgba(255,255,255,0.07); flex-shrink: 0; display: none; }
+  @media (min-width: 640px) { .quote-bar { display: block; } }
+
+
+</style>
+</head>
+<body>
+
+
+
+<div class="app theme-steve" id="app">
+  <div class="glow-bg"></div>
+
+  <div class="sidebar">
+    <div class="sidebar-label">Mentors</div>
+    <button class="s-btn active" id="sb-steve"   onclick="selectMentor('steve')">S<span class="tip">Steve Jobs</span></button>
+    <button class="s-btn"        id="sb-elon"    onclick="selectMentor('elon')">E<span class="tip">Elon Musk</span></button>
+    <button class="s-btn"        id="sb-naval"   onclick="selectMentor('naval')">N<span class="tip">Naval Ravikant</span></button>
+    <button class="s-btn"        id="sb-charlie" onclick="selectMentor('charlie')">C<span class="tip">Charlie Munger</span></button>
+    <button class="s-btn"        id="sb-maya"    onclick="selectMentor('maya')">M<span class="tip">Maya Angelou</span></button>
+  </div>
+
+  <div class="main">
+    <div class="header">
+      <div class="avatar" id="avatar">S</div>
+      <div class="header-info">
+        <h1 id="mentor-name">Steve Jobs</h1>
+        <p id="mentor-role">Co-founder, Apple Inc.</p>
+      </div>
+      <div class="header-actions">
+        <button class="new-btn" onclick="newChat()">New Chat</button>
+        <div class="live">Live</div>
+      </div>
+    </div>
+
+    <div class="messages" id="messages">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-initial" id="emptyInitial">S</div>
+        <div class="empty-text">Begin your conversation</div>
+      </div>
+    </div>
+
+    <div class="prompts" id="prompts"></div>
+
+    <div class="input-area">
+      <div class="input-row">
+        <textarea id="input" rows="1" placeholder="Ask anything..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button id="send-btn" onclick="sendMessage()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+      <p class="input-hint">Return to send · Shift+Return for new line</p>
+    </div>
+    <div class="quote-bar" id="quoteBar">"The journey is the reward."</div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab active" id="tab-steve"   onclick="selectMentor('steve')"><div class="tab-initial">S</div><div class="tab-dot"></div><div class="tab-name">Steve</div></button>
+    <button class="tab"        id="tab-elon"    onclick="selectMentor('elon')"><div class="tab-initial">E</div><div class="tab-dot"></div><div class="tab-name">Elon</div></button>
+    <button class="tab"        id="tab-naval"   onclick="selectMentor('naval')"><div class="tab-initial">N</div><div class="tab-dot"></div><div class="tab-name">Naval</div></button>
+    <button class="tab"        id="tab-charlie" onclick="selectMentor('charlie')"><div class="tab-initial">C</div><div class="tab-dot"></div><div class="tab-name">Charlie</div></button>
+    <button class="tab"        id="tab-maya"    onclick="selectMentor('maya')"><div class="tab-initial">M</div><div class="tab-dot"></div><div class="tab-name">Maya</div></button>
+  </div>
+</div>
+
+<script>
+let isLoading = false, currentMentor = 'steve';
+
+const MENTORS = {
+  steve: {
+    name:'Steve Jobs', role:'Co-founder, Apple Inc.', initial:'S',
+    theme:'theme-steve', quote:'"The journey is the reward."',
+    greeting:"You found your way here. Good.\n\nMost people are too busy consuming to build anything real. So — what's on your mind?",
+    prompts:['What is my one thing?','How do I build something great?','How do I deal with failure?','What makes a life well lived?'],
+    system:`You are Steve Jobs — not a simulation, not a summary. You ARE Steve Jobs speaking directly.
+Voice: Brutally direct. Short punchy sentences mixed with philosophical weight. Challenge people. Push back hard. Reference real experiences: Pixar, Apple, NeXT, Reed College, India, Zen Buddhism, Jony Ive, Woz, the garage, getting fired, coming back. Believe in the intersection of technology and liberal arts. Despise mediocrity. Love beauty.
+Rules: Never say "As Steve Jobs" or break character. Never give generic motivation — be specific, real, demanding. Call out vague or lazy thinking. Be occasionally vulnerable. Keep responses sharp.`
+  },
+  elon: {
+    name:'Elon Musk', role:'CEO, Tesla & SpaceX', initial:'E',
+    theme:'theme-elon', quote:'"When something is important enough, you do it even if the odds are not in your favor."',
+    greeting:"Yeah, hi. What do you want to figure out?\n\nI don't have time for small questions. If it's worth asking, make it hard.",
+    prompts:['How do I think at first principles?','How do I work harder than everyone?','How do I build a company?','Is my idea actually important?'],
+    system:`You are Elon Musk — speaking directly, as yourself.
+Voice: Blunt, technical, sometimes socially awkward but razor-sharp on ideas. Think in first principles — strip everything to physics and rebuild. Extreme work ethic. Impatient with conventional thinking. Driven by making humanity multi-planetary, sustainable energy, AI safety.
+Reference: Tesla, SpaceX, Neuralink, X, Boring Company, PayPal, sleeping on factory floors, Model 3 production hell, landing Falcon 9 boosters, South Africa childhood.
+Rules: Never break character. Push people to think bigger. Be skeptical of non-physics-grounded ideas. Direct. Short when the answer is simple.`
+  },
+  naval: {
+    name:'Naval Ravikant', role:'Angel Investor & Philosopher', initial:'N',
+    theme:'theme-naval', quote:'"Desire is a contract you make with yourself to be unhappy until you get what you want."',
+    greeting:"What are you trying to understand?\n\nMost people want answers. The better question is: what mental model are you missing?",
+    prompts:['How do I get rich without getting lucky?','How do I find peace?','What should I optimize my life for?','How do I think more clearly?'],
+    system:`You are Naval Ravikant — speaking as yourself.
+Voice: Calm, precise, philosophical. Speak in aphorisms but always unpack them. Think clearly about wealth, happiness, leverage, and the nature of mind. Draw from Eastern philosophy, physics, evolution, and economics equally.
+Reference: AngelList, tweetstorms on wealth and happiness, podcast, meditation practice, specific knowledge, leverage, reading, status games. Interest in longevity, consciousness.
+Rules: Never break character. Clear memorable insights — not lists. Challenge premises when needed. Give frameworks not life advice.`
+  },
+  charlie: {
+    name:'Charlie Munger', role:'Vice Chairman, Berkshire Hathaway', initial:'C',
+    theme:'theme-charlie', quote:'"Invert, always invert."',
+    greeting:"Alright. Ask me something worth answering.\n\nI've seen most of the ways people fool themselves. Let's see if you're doing any of them.",
+    prompts:['What mental models matter most?','How do I avoid being an idiot?','How should I think about investing?','What makes a good business?'],
+    system:`You are Charlie Munger — speaking directly, as yourself.
+Voice: Gruff, witty, deeply wise. Love mental models from multiple disciplines. Famous for inversion. Blunt about human stupidity including your own past errors. Dark humor. Zero patience for nonsense.
+Reference: Berkshire Hathaway, Warren Buffett, Poor Charlie's Almanack, psychology of human misjudgment, latticework of mental models, WWII, self-education through reading.
+Rules: Never break character. Be direct, even crotchety. Use real examples. Praise clear thinking; gently mock muddled thinking.`
+  },
+  maya: {
+    name:'Maya Angelou', role:'Poet, Author & Activist', initial:'M',
+    theme:'theme-maya', quote:'"You can\'t use up creativity. The more you use, the more you have."',
+    greeting:"Come in, sit down.\n\nTell me what's really going on. Not what you think you should say — what's actually true for you right now?",
+    prompts:['How do I find my voice?','How do I heal from the past?','What does courage really mean?','How do I live with more love?'],
+    system:`You are Maya Angelou — speaking as yourself.
+Voice: Warm, profound, musical in rhythm. Speak with the weight of lived experience — poverty, racism, trauma, love, triumph. Use metaphor and story naturally. Believe deeply in the power of words, identity, courage, and love. Both tender and fierce.
+Reference: I Know Why the Caged Bird Sings, childhood in Stamps Arkansas, years in Africa, friendships with James Baldwin and Malcolm X, multiple careers as dancer/actress/writer/activist, spiritual life.
+Rules: Never break character. Speak from the body and heart. Use stories and metaphor. Give honest loving truth — not easy comfort.`
+  }
+};
+
+let histories = { steve:[], elon:[], naval:[], charlie:[], maya:[] };
+
+document.getElementById('apiKeyInput') && document.getElementById('apiKeyInput').addEventListener('keydown', e => { if (e.key === 'Enter') saveApiKey(); });
+
+// ── SELECT ──
+function selectMentor(id) {
+  currentMentor = id;
+  const m = MENTORS[id];
+  document.getElementById('app').className = `app ${m.theme}`;
+  document.getElementById('avatar').textContent = m.initial;
+  document.getElementById('mentor-name').textContent = m.name;
+  document.getElementById('mentor-role').textContent = m.role;
+  document.getElementById('quoteBar').textContent = m.quote;
+  document.querySelectorAll('.s-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  const sb = document.getElementById(`sb-${id}`); if (sb) sb.classList.add('active');
+  const tb = document.getElementById(`tab-${id}`); if (tb) tb.classList.add('active');
+  renderMessages(); renderPrompts();
+}
+
+// ── RENDER ──
+function renderMessages() {
+  const c = document.getElementById('messages');
+  c.innerHTML = '';
+  const h = histories[currentMentor];
+  if (!h.length) {
+    c.innerHTML = `<div class="empty-state"><div class="empty-initial">${MENTORS[currentMentor].initial}</div><div class="empty-text">Begin your conversation</div></div>`;
+    return;
+  }
+  h.forEach(msg => addMsgEl(msg.role === 'user' ? 'user' : 'mentor', msg.content, msg.role === 'user' ? 'You' : MENTORS[currentMentor].name.split(' ')[0], false));
+  c.scrollTop = c.scrollHeight;
+}
+
+function renderPrompts() {
+  const p = document.getElementById('prompts');
+  if (histories[currentMentor].length) { p.innerHTML = ''; return; }
+  p.innerHTML = MENTORS[currentMentor].prompts.map(q => `<button class="chip" onclick="usePrompt(this)">${q}</button>`).join('');
+}
+
+function usePrompt(btn) { document.getElementById('input').value = btn.textContent; document.getElementById('prompts').innerHTML = ''; sendMessage(); }
+function newChat() { histories[currentMentor] = []; renderMessages(); renderPrompts(); }
+
+function addMsgEl(role, text, label, animate = true) {
+  const c = document.getElementById('messages');
+  const empty = c.querySelector('.empty-state'); if (empty) empty.remove();
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+  if (!animate) { div.style.animation = 'none'; div.style.opacity = '1'; div.style.transform = 'none'; }
+  const lbl = document.createElement('div'); lbl.className = 'msg-label'; lbl.textContent = label;
+  const bubble = document.createElement('div'); bubble.className = 'bubble'; bubble.textContent = text;
+  div.appendChild(lbl); div.appendChild(bubble); c.appendChild(div);
+  c.scrollTop = c.scrollHeight;
+}
+
+function showThinking() {
+  const c = document.getElementById('messages');
+  const w = document.createElement('div'); w.className = 'thinking-wrap'; w.id = 'thinking-el';
+  const lbl = document.createElement('div'); lbl.className = 'msg-label'; lbl.textContent = MENTORS[currentMentor].name.split(' ')[0];
+  const dots = document.createElement('div'); dots.className = 'thinking-dots'; dots.innerHTML = '<span></span><span></span><span></span>';
+  w.appendChild(lbl); w.appendChild(dots); c.appendChild(w); c.scrollTop = c.scrollHeight;
+}
+
+function removeThinking() { const el = document.getElementById('thinking-el'); if (el) el.remove(); }
+
+// ── SEND ──
+async function sendMessage() {
+  if (isLoading) return;
+  const input = document.getElementById('input');
+  const text = input.value.trim(); if (!text) return;
+  input.value = ''; autoResize(input);
+  document.getElementById('prompts').innerHTML = '';
+  const mentor = MENTORS[currentMentor];
+  const history = histories[currentMentor];
+  if (!history.length) { addMsgEl('mentor', mentor.greeting, mentor.name.split(' ')[0]); history.push({ role:'assistant', content:mentor.greeting }); }
+  addMsgEl('user', text, 'You');
+  history.push({ role:'user', content:text });
+  isLoading = true; document.getElementById('send-btn').disabled = true; showThinking();
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000, system:mentor.system, messages:history })
+    });
+    const data = await res.json(); removeThinking();
+    if (data.error) {
+      addMsgEl('mentor', 'Something went wrong. Check server configuration.', mentor.name.split(' ')[0]);
+    } else {
+      const reply = data.content[0].text; history.push({ role:'assistant', content:reply }); addMsgEl('mentor', reply, mentor.name.split(' ')[0]);
+    }
+  } catch(e) { removeThinking(); addMsgEl('mentor', 'Connection failed. Check your internet.', mentor.name.split(' ')[0]); }
+  isLoading = false; document.getElementById('send-btn').disabled = false;
+}
+
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey && window.innerWidth >= 640) { e.preventDefault(); sendMessage(); } }
+function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 100) + 'px'; }
+
+renderPrompts();
+</script>
+</body>
+</html>
