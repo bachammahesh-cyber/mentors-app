@@ -3,11 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="mobile-web-app-capable" content="yes">
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#080808">
+
+<!-- iOS -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mentors">
-<meta name="theme-color" content="#080808">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+<!-- Splash screens iOS -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<!-- Android -->
+<meta name="mobile-web-app-capable" content="yes">
+
+<!-- General -->
+<meta name="description" content="Talk to Steve Jobs, Elon Musk, Naval Ravikant, Charlie Munger and Maya Angelou">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.png">
+
 <title>Mentors</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap');
@@ -485,7 +502,14 @@ async function sendMessage() {
 function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey && window.innerWidth >= 640) { e.preventDefault(); sendMessage(); } }
 function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 100) + 'px'; }
 
-renderPrompts();
+const urlMentor = new URLSearchParams(window.location.search).get('mentor');
+selectMentor(MENTORS[urlMentor] ? urlMentor : currentMentor);
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
 </script>
 </body>
 </html>
