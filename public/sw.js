@@ -1,4 +1,4 @@
-const CACHE = 'mentors-v3';
+const CACHE = 'mentors-v4';
 const ASSETS = [
   '/',
   '/index.html',
