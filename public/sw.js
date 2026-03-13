@@ -1,4 +1,4 @@
-const CACHE = 'mentors-v1';
+const CACHE = 'mentors-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -26,10 +26,21 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// Fetch — serve from cache, fall back to network
+// Fetch — prefer fresh app shell, cache assets for offline use
 self.addEventListener('fetch', e => {
   // Never cache API calls
   if (e.request.url.includes('/api/')) return;
+
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        const clone = res.clone();
+        caches.open(CACHE).then(cache => cache.put('/index.html', clone));
+        return res;
+      }).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
 
   e.respondWith(
     caches.match(e.request).then(cached => {

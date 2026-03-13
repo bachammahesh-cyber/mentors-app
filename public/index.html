@@ -372,6 +372,7 @@
 let isLoading = false, currentMentor = 'steve';
 const SYNC_KEY_STORAGE = 'mentors-sync-key';
 const DEFAULT_SYNC_KEY = 'default';
+const HISTORY_STORAGE_PREFIX = 'mentors-history';
 
 const MENTORS = {
   steve: {
@@ -464,24 +465,53 @@ function updateSyncButton() {
   if (syncBtn) syncBtn.textContent = `Sync ${syncKey.slice(-4)}`;
 }
 
+function getHistoryStorageKey(mentor) {
+  return `${HISTORY_STORAGE_PREFIX}:${syncKey}:${mentor}`;
+}
+
+function readLocalHistory(mentor) {
+  try {
+    const raw = localStorage.getItem(getHistoryStorageKey(mentor));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeLocalHistory(mentor, history) {
+  try {
+    localStorage.setItem(getHistoryStorageKey(mentor), JSON.stringify(history || []));
+  } catch (e) {
+    console.error('Failed to write local history:', e);
+  }
+}
+
 async function loadHistory(mentor, { force = false } = {}) {
   if (!force && histories[mentor] !== null) return;
+  const localMessages = readLocalHistory(mentor);
+  histories[mentor] = localMessages;
   try {
     const res = await fetch(`/api/history/${mentor}?syncKey=${encodeURIComponent(syncKey)}`);
+    if (!res.ok) throw new Error(`History load failed with ${res.status}`);
     const data = await res.json();
-    histories[mentor] = data.messages || [];
+    const remoteMessages = Array.isArray(data.messages) ? data.messages : [];
+    histories[mentor] = remoteMessages.length >= localMessages.length ? remoteMessages : localMessages;
+    writeLocalHistory(mentor, histories[mentor]);
   } catch (e) {
-    histories[mentor] = [];
+    histories[mentor] = localMessages;
   }
 }
 
 async function saveMessage(mentor, role, content) {
   try {
-    await fetch(`/api/history/${mentor}`, {
+    const res = await fetch(`/api/history/${mentor}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role, content, syncKey })
     });
+    if (!res.ok) throw new Error(`History save failed with ${res.status}`);
   } catch (e) {
     console.error('Failed to save message:', e);
   }
@@ -489,10 +519,13 @@ async function saveMessage(mentor, role, content) {
 
 async function clearHistory(mentor) {
   try {
-    await fetch(`/api/history/${mentor}?syncKey=${encodeURIComponent(syncKey)}`, { method: 'DELETE' });
+    const res = await fetch(`/api/history/${mentor}?syncKey=${encodeURIComponent(syncKey)}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`History clear failed with ${res.status}`);
     histories[mentor] = [];
   } catch (e) {
     console.error('Failed to clear history:', e);
+  } finally {
+    writeLocalHistory(mentor, []);
   }
 }
 
@@ -605,10 +638,12 @@ async function sendMessage() {
     addMsgEl('mentor', mentor.greeting, mentor.name.split(' ')[0]);
     history.push({ role:'assistant', content:mentor.greeting });
     histories[currentMentor] = history;
+    writeLocalHistory(currentMentor, history);
     await saveMessage(currentMentor, 'assistant', mentor.greeting);
   }
   addMsgEl('user', text, 'You');
   history.push({ role:'user', content:text });
+  writeLocalHistory(currentMentor, history);
   await saveMessage(currentMentor, 'user', text);
   isLoading = true; document.getElementById('send-btn').disabled = true; showThinking();
   try {
@@ -623,6 +658,7 @@ async function sendMessage() {
     } else {
       const reply = data.content[0].text;
       history.push({ role:'assistant', content:reply });
+      writeLocalHistory(currentMentor, history);
       await saveMessage(currentMentor, 'assistant', reply);
       addMsgEl('mentor', reply, mentor.name.split(' ')[0]);
     }
