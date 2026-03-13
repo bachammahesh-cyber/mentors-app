@@ -20,11 +20,20 @@ async function initDB() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS messages (
         id SERIAL PRIMARY KEY,
+        sync_key VARCHAR(120) NOT NULL DEFAULT 'default',
         mentor VARCHAR(50) NOT NULL,
         role VARCHAR(20) NOT NULL,
         content TEXT NOT NULL,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+    `);
+    await pool.query(`
+      ALTER TABLE messages
+      ADD COLUMN IF NOT EXISTS sync_key VARCHAR(120) NOT NULL DEFAULT 'default';
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_messages_sync_mentor_created_at
+      ON messages (sync_key, mentor, created_at, id);
     `);
     console.log('Database ready');
   } catch (err) {
@@ -36,9 +45,17 @@ initDB();
 
 app.get('/api/history/:mentor', async (req, res) => {
   try {
+    const syncKey = String(req.query.syncKey || '').trim();
+    if (!syncKey) {
+      return res.status(400).json({ error: 'syncKey is required' });
+    }
+
     const result = await pool.query(
-      'SELECT role, content FROM messages WHERE mentor = $1 ORDER BY created_at ASC',
-      [req.params.mentor]
+      `SELECT role, content
+       FROM messages
+       WHERE mentor = $1 AND sync_key = $2
+       ORDER BY created_at ASC, id ASC`,
+      [req.params.mentor, syncKey]
     );
     res.json({ messages: result.rows });
   } catch (err) {
@@ -49,10 +66,15 @@ app.get('/api/history/:mentor', async (req, res) => {
 
 app.post('/api/history/:mentor', async (req, res) => {
   try {
-    const { role, content } = req.body;
+    const { role, content, syncKey } = req.body;
+    const normalizedSyncKey = String(syncKey || '').trim();
+    if (!normalizedSyncKey) {
+      return res.status(400).json({ error: 'syncKey is required' });
+    }
+
     await pool.query(
-      'INSERT INTO messages (mentor, role, content) VALUES ($1, $2, $3)',
-      [req.params.mentor, role, content]
+      'INSERT INTO messages (sync_key, mentor, role, content) VALUES ($1, $2, $3, $4)',
+      [normalizedSyncKey, req.params.mentor, role, content]
     );
     res.json({ ok: true });
   } catch (err) {
@@ -63,7 +85,12 @@ app.post('/api/history/:mentor', async (req, res) => {
 
 app.delete('/api/history/:mentor', async (req, res) => {
   try {
-    await pool.query('DELETE FROM messages WHERE mentor = $1', [req.params.mentor]);
+    const syncKey = String(req.query.syncKey || '').trim();
+    if (!syncKey) {
+      return res.status(400).json({ error: 'syncKey is required' });
+    }
+
+    await pool.query('DELETE FROM messages WHERE mentor = $1 AND sync_key = $2', [req.params.mentor, syncKey]);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to clear history' });

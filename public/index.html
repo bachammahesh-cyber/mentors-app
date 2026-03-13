@@ -159,6 +159,22 @@
 
   .header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 
+  .sync-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: rgba(255,255,255,0.45);
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .sync-btn:hover, .sync-btn:active { border-color: var(--accent-dim); color: var(--accent); }
+
   .new-btn {
     background: none; border: 1px solid var(--border); color: rgba(255,255,255,0.28);
     font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.1em;
@@ -313,6 +329,7 @@
         <p id="mentor-role">Co-founder, Apple Inc.</p>
       </div>
       <div class="header-actions">
+        <button class="sync-btn" id="sync-btn" onclick="manageSync()">Sync</button>
         <button class="new-btn" onclick="newChat()">New Chat</button>
         <div class="live">Live</div>
       </div>
@@ -353,6 +370,8 @@
 
 <script>
 let isLoading = false, currentMentor = 'steve';
+const SYNC_KEY_STORAGE = 'mentors-sync-key';
+const DEFAULT_SYNC_KEY = 'default';
 
 const MENTORS = {
   steve: {
@@ -407,11 +426,48 @@ Rules: Never break character. Speak from the body and heart. Use stories and met
 };
 
 let histories = { steve:null, elon:null, naval:null, charlie:null, maya:null };
+let syncKey = getOrCreateSyncKey();
 
-async function loadHistory(mentor) {
-  if (histories[mentor] !== null) return;
+function generateSyncKey() {
+  const randomPart = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `MENTORS-${randomPart}`;
+}
+
+function normalizeSyncKey(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9-_]/g, '');
+}
+
+function getOrCreateSyncKey() {
+  const urlSyncKey = normalizeSyncKey(new URLSearchParams(window.location.search).get('sync'));
+  if (urlSyncKey) {
+    localStorage.setItem(SYNC_KEY_STORAGE, urlSyncKey);
+    return urlSyncKey;
+  }
+
+  const stored = normalizeSyncKey(localStorage.getItem(SYNC_KEY_STORAGE));
+  if (stored) return stored;
+
+  const created = DEFAULT_SYNC_KEY;
+  localStorage.setItem(SYNC_KEY_STORAGE, created);
+  return created;
+}
+
+function resetCachedHistories() {
+  histories = { steve:null, elon:null, naval:null, charlie:null, maya:null };
+}
+
+function updateSyncButton() {
+  const syncBtn = document.getElementById('sync-btn');
+  if (syncBtn) syncBtn.textContent = `Sync ${syncKey.slice(-4)}`;
+}
+
+async function loadHistory(mentor, { force = false } = {}) {
+  if (!force && histories[mentor] !== null) return;
   try {
-    const res = await fetch(`/api/history/${mentor}`);
+    const res = await fetch(`/api/history/${mentor}?syncKey=${encodeURIComponent(syncKey)}`);
     const data = await res.json();
     histories[mentor] = data.messages || [];
   } catch (e) {
@@ -424,7 +480,7 @@ async function saveMessage(mentor, role, content) {
     await fetch(`/api/history/${mentor}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role, content })
+      body: JSON.stringify({ role, content, syncKey })
     });
   } catch (e) {
     console.error('Failed to save message:', e);
@@ -433,11 +489,42 @@ async function saveMessage(mentor, role, content) {
 
 async function clearHistory(mentor) {
   try {
-    await fetch(`/api/history/${mentor}`, { method: 'DELETE' });
+    await fetch(`/api/history/${mentor}?syncKey=${encodeURIComponent(syncKey)}`, { method: 'DELETE' });
     histories[mentor] = [];
   } catch (e) {
     console.error('Failed to clear history:', e);
   }
+}
+
+async function refreshCurrentMentorHistory() {
+  await loadHistory(currentMentor, { force: true });
+  renderMessages();
+  renderPrompts();
+}
+
+function manageSync() {
+  const entered = window.prompt(
+    `Your sync code is ${syncKey}.\n\nUse this same code on your MacBook and phone to see the same chats.\n\nPaste a different sync code here to switch devices, or leave it unchanged.`,
+    syncKey
+  );
+  if (entered === null) return;
+
+  const normalized = normalizeSyncKey(entered);
+  if (!normalized) {
+    window.alert('Please enter a valid sync code.');
+    return;
+  }
+
+  if (normalized === syncKey) {
+    window.alert(`This device is already using ${syncKey}.`);
+    return;
+  }
+
+  syncKey = normalized;
+  localStorage.setItem(SYNC_KEY_STORAGE, syncKey);
+  resetCachedHistories();
+  updateSyncButton();
+  selectMentor(currentMentor);
 }
 
 // ── SELECT ──
@@ -455,7 +542,7 @@ async function selectMentor(id) {
   const tb = document.getElementById(`tab-${id}`); if (tb) tb.classList.add('active');
   const c = document.getElementById('messages');
   c.innerHTML = `<div class="empty-state"><div class="empty-initial">${m.initial}</div><div class="empty-text" id="loadingText">Loading…</div></div>`;
-  await loadHistory(id);
+  await loadHistory(id, { force: true });
   renderMessages();
   renderPrompts();
 }
@@ -548,7 +635,13 @@ function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(e
 
 const urlMentor = new URLSearchParams(window.location.search).get('mentor');
 const startMentor = (urlMentor && MENTORS[urlMentor]) ? urlMentor : 'steve';
+updateSyncButton();
 selectMentor(startMentor);
+
+window.addEventListener('focus', refreshCurrentMentorHistory);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) refreshCurrentMentorHistory();
+});
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
