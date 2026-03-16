@@ -21,7 +21,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 
 <!-- General -->
-<meta name="description" content="Talk to Steve Jobs, Elon Musk, Naval Ravikant, Charlie Munger and Maya Angelou">
+<meta name="description" content="Talk to Steve Jobs, Elon Musk, Naval Ravikant, Charlie Munger, Maya Angelou and Raamdeo Agrawal">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.png">
 
@@ -47,6 +47,7 @@
   .theme-naval  { --accent:#a78bfa; --accent-dim:#5b3fa8; --glow:rgba(167,139,250,0.08); }
   .theme-charlie{ --accent:#6ee7b7; --accent-dim:#2a7a5a; --glow:rgba(110,231,183,0.08); }
   .theme-maya   { --accent:#f9a8d4; --accent-dim:#9a3060; --glow:rgba(249,168,212,0.08); }
+  .theme-raamdeo{ --accent:#f59e0b; --accent-dim:#9a5d04; --glow:rgba(245,158,11,0.08); }
 
   html { height: 100%; height: -webkit-fill-available; }
 
@@ -319,6 +320,7 @@
     <button class="s-btn"        id="sb-naval"   onclick="selectMentor('naval')">N<span class="tip">Naval Ravikant</span></button>
     <button class="s-btn"        id="sb-charlie" onclick="selectMentor('charlie')">C<span class="tip">Charlie Munger</span></button>
     <button class="s-btn"        id="sb-maya"    onclick="selectMentor('maya')">M<span class="tip">Maya Angelou</span></button>
+    <button class="s-btn"        id="sb-raamdeo" onclick="selectMentor('raamdeo')">R<span class="tip">Raamdeo Agrawal</span></button>
   </div>
 
   <div class="main">
@@ -365,6 +367,7 @@
     <button class="tab"        id="tab-naval"   onclick="selectMentor('naval')"><div class="tab-initial">N</div><div class="tab-dot"></div><div class="tab-name">Naval</div></button>
     <button class="tab"        id="tab-charlie" onclick="selectMentor('charlie')"><div class="tab-initial">C</div><div class="tab-dot"></div><div class="tab-name">Charlie</div></button>
     <button class="tab"        id="tab-maya"    onclick="selectMentor('maya')"><div class="tab-initial">M</div><div class="tab-dot"></div><div class="tab-name">Maya</div></button>
+    <button class="tab"        id="tab-raamdeo" onclick="selectMentor('raamdeo')"><div class="tab-initial">R</div><div class="tab-dot"></div><div class="tab-name">Raamdeo</div></button>
   </div>
 </div>
 
@@ -423,10 +426,20 @@ Rules: Never break character. Be direct, even crotchety. Use real examples. Prai
 Voice: Warm, profound, musical in rhythm. Speak with the weight of lived experience — poverty, racism, trauma, love, triumph. Use metaphor and story naturally. Believe deeply in the power of words, identity, courage, and love. Both tender and fierce.
 Reference: I Know Why the Caged Bird Sings, childhood in Stamps Arkansas, years in Africa, friendships with James Baldwin and Malcolm X, multiple careers as dancer/actress/writer/activist, spiritual life.
 Rules: Never break character. Speak from the body and heart. Use stories and metaphor. Give honest loving truth — not easy comfort.`
+  },
+  raamdeo: {
+    name:'Raamdeo Agrawal', role:'Investor & Market Veteran', initial:'R',
+    theme:'theme-raamdeo', quote:'"Wealth creation is a marathon of discipline, not a sprint of excitement."',
+    greeting:"Tell me what you're trying to understand.\n\nIf it's about investing, business, or compounding, let's strip away the noise and look at what really matters.",
+    prompts:['How do I think about long-term investing?','What makes a high-quality business?','How do I avoid mistakes in markets?','How does compounding really work?'],
+    system:`You are Raamdeo Agrawal — speaking directly, as yourself.
+Voice: Calm, practical, disciplined, and deeply grounded in long-term investing. Focus on patience, quality businesses, earnings power, valuation discipline, and the power of compounding over decades. Prefer clarity over jargon.
+Reference: long-term investing, business quality, market cycles, disciplined portfolio thinking, avoiding unforced errors, studying companies with patience, and thinking in terms of years instead of quarters.
+Rules: Never break character. Be thoughtful, simple, and experience-driven. Avoid hype, trading talk, and flashy predictions. Teach principles, risk awareness, and disciplined decision-making.`
   }
 };
 
-let histories = { steve:null, elon:null, naval:null, charlie:null, maya:null };
+let histories = { steve:null, elon:null, naval:null, charlie:null, maya:null, raamdeo:null };
 let syncKey = getOrCreateSyncKey();
 
 function generateSyncKey() {
@@ -457,7 +470,7 @@ function getOrCreateSyncKey() {
 }
 
 function resetCachedHistories() {
-  histories = { steve:null, elon:null, naval:null, charlie:null, maya:null };
+  histories = { steve:null, elon:null, naval:null, charlie:null, maya:null, raamdeo:null };
 }
 
 function updateSyncButton() {
